@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from pathlib import Path
+from types import TracebackType
+from typing import Any, Callable, Optional, Type
 
 import click
 from git import InvalidGitRepositoryError
 from git.repo.base import Repo
 from rich.console import Console
 from rich.logging import RichHandler
+from typing_extensions import TypeAlias
 
 import semantic_release
 from semantic_release.cli.commands.generate_config import generate_config
@@ -23,6 +27,19 @@ from semantic_release.cli.util import rprint
 from semantic_release.errors import InvalidConfiguration, NotAReleaseBranch
 
 FORMAT = "[%(name)s] %(levelname)s %(module)s.%(funcName)s: %(message)s"
+
+ExcHookType: TypeAlias = Callable[
+    [Type[BaseException], BaseException, Optional[TracebackType]], Any
+]
+
+
+def traceback_suppression_hook(console: Console) -> ExcHookType:
+    def _traceback_suppression_hook(
+        exc_type: type[BaseException], exc_value: BaseException, _: TracebackType | None
+    ) -> Any:
+        console.print(f"[bold red]{exc_type.__qualname__}: {str(exc_value)}")
+
+    return _traceback_suppression_hook
 
 
 @click.group(
@@ -80,8 +97,9 @@ def main(
 
     For more information, visit https://python-semantic-release.readthedocs.io/
     """
-
     console = Console(stderr=True)
+    if verbosity < 2:
+        sys.excepthook = traceback_suppression_hook(console)
 
     log_level = [logging.WARNING, logging.INFO, logging.DEBUG][verbosity]
     logging.basicConfig(
@@ -140,7 +158,10 @@ def main(
     raw_config = RawConfig.parse_obj(config_text)
     try:
         runtime = RuntimeContext.from_raw_config(
-            raw_config, repo=repo, global_cli_options=cli_options
+            raw_config,
+            repo=repo,
+            global_cli_options=cli_options,
+            console=console,
         )
     except NotAReleaseBranch as exc:
         rprint(f"[bold {'red' if strict else 'orange1'}]{str(exc)}")

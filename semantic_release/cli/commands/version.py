@@ -189,13 +189,13 @@ def get_windows_env() -> Mapping[str, str | None]:
             "ALLUSERSPROFILE",
             "APPDATA",
             "COMMONPROGRAMFILES",
-            "COMMONPROGRAMFILES(x86)",
+            "COMMONPROGRAMFILES(X86)",
             "DEFAULTUSERPROFILE",
             "HOMEPATH",
             "PATHEXT",
             "PROFILESFOLDER",
             "PROGRAMFILES",
-            "PROGRAMFILES(x86)",
+            "PROGRAMFILES(X86)",
             "SYSTEM",
             "SYSTEM16",
             "SYSTEM32",
@@ -219,19 +219,12 @@ def build_distributions(
     """
     Run the build command to build the distributions.
 
-    Arguments:
-    ---------
-        build_command: str | None
-            The build command to run
-        build_command_env: Mapping[str, str] | None
-            The environment variables to use when running the build command
-        noop: bool
-            Whether or not to run the build command
+    :param build_command: The build command to run.
+    :param build_command_env: The environment variables to use when running the
+        build command.
+    :param noop: Whether or not to run the build command.
 
-    Raises:
-    ------
-        BuildDistributionsError: if the build command fails
-
+    :raises: BuildDistributionsError: if the build command fails
     """
     if not build_command:
         rprint("[green]No build command specified, skipping")

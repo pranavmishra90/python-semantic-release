@@ -5,6 +5,7 @@ import filecmp
 import os
 import re
 import shutil
+import subprocess
 from pathlib import Path
 from subprocess import CompletedProcess
 from textwrap import dedent
@@ -37,6 +38,7 @@ from tests.util import (
     assert_exit_code,
     assert_successful_exit_code,
     flatten_dircmp,
+    get_func_qual_name,
     get_release_history_from_context,
     remove_dir_tree,
 )
@@ -513,7 +515,7 @@ def test_version_no_push_force_level(
         [
             "CHANGELOG.md",
             "pyproject.toml",
-            f"src/{EXAMPLE_PROJECT_NAME}/_version.py",
+            str(Path(f"src/{EXAMPLE_PROJECT_NAME}/_version.py")),
         ]
     )
 
@@ -671,9 +673,9 @@ def test_version_runs_build_command(
     exe = shell.split("/")[-1]
     patched_os_environment = {
         "CI": "true",
-        "PATH": os.getenv("PATH"),
-        "HOME": os.getenv("HOME"),
-        "VIRTUAL_ENV": os.getenv("VIRTUAL_ENV", "./.venv"),
+        "PATH": os.getenv("PATH", ""),
+        "HOME": "/home/username",
+        "VIRTUAL_ENV": "./.venv",
         # Simulate that all CI's are set
         "GITHUB_ACTIONS": "true",
         "GITLAB_CI": "true",
@@ -685,13 +687,13 @@ def test_version_runs_build_command(
         "ALLUSERSPROFILE": "C:\\ProgramData",
         "APPDATA": "C:\\Users\\Username\\AppData\\Roaming",
         "COMMONPROGRAMFILES": "C:\\Program Files\\Common Files",
-        "COMMONPROGRAMFILES(x86)": "C:\\Program Files (x86)\\Common Files",
+        "COMMONPROGRAMFILES(X86)": "C:\\Program Files (x86)\\Common Files",
         "DEFAULTUSERPROFILE": "C:\\Users\\Default",
         "HOMEPATH": "\\Users\\Username",
         "PATHEXT": ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC",
         "PROFILESFOLDER": "C:\\Users",
         "PROGRAMFILES": "C:\\Program Files",
-        "PROGRAMFILES(x86)": "C:\\Program Files (x86)",
+        "PROGRAMFILES(X86)": "C:\\Program Files (x86)",
         "SYSTEM": "C:\\Windows\\System32",
         "SYSTEM16": "C:\\Windows\\System16",
         "SYSTEM32": "C:\\Windows\\System32",
@@ -701,16 +703,18 @@ def test_version_runs_build_command(
         "TMP": "C:\\Users\\Username\\AppData\\Local\\Temp",
         "USERPROFILE": "C:\\Users\\Username",
         "USERSID": "S-1-5-21-1234567890-123456789-123456789-1234",
+        "USERNAME": "Username",  # must include for python getpass.getuser() on windows
         "WINDIR": "C:\\Windows",
     }
 
     # Mock out subprocess.run
     with mock.patch(
-        "subprocess.run", return_value=CompletedProcess(args=(), returncode=0)
+        get_func_qual_name(subprocess.run),
+        return_value=CompletedProcess(args=(), returncode=0),
     ) as patched_subprocess_run, mock.patch(
         "shellingham.detect_shell", return_value=(exe, shell)
     ), mock.patch("sys.platform", "linux"), mock.patch.dict(
-        "os.environ", patched_os_environment, clear=True
+        os.environ, patched_os_environment, clear=True
     ):
         cli_cmd = [MAIN_PROG_NAME, VERSION_SUBCMD, "--patch", "--no-push"]
 
@@ -752,9 +756,9 @@ def test_version_runs_build_command_windows(
     exe = shell.split("/")[-1]
     patched_os_environment = {
         "CI": "true",
-        "PATH": os.getenv("PATH"),
-        "HOME": os.getenv("HOME"),
-        "VIRTUAL_ENV": os.getenv("VIRTUAL_ENV", "./.venv"),
+        "PATH": os.getenv("PATH", ""),
+        "HOME": "/home/username",
+        "VIRTUAL_ENV": "./.venv",
         # Simulate that all CI's are set
         "GITHUB_ACTIONS": "true",
         "GITLAB_CI": "true",
@@ -766,13 +770,13 @@ def test_version_runs_build_command_windows(
         "ALLUSERSPROFILE": "C:\\ProgramData",
         "APPDATA": "C:\\Users\\Username\\AppData\\Roaming",
         "COMMONPROGRAMFILES": "C:\\Program Files\\Common Files",
-        "COMMONPROGRAMFILES(x86)": "C:\\Program Files (x86)\\Common Files",
+        "COMMONPROGRAMFILES(X86)": "C:\\Program Files (x86)\\Common Files",
         "DEFAULTUSERPROFILE": "C:\\Users\\Default",
         "HOMEPATH": "\\Users\\Username",
         "PATHEXT": ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC",
         "PROFILESFOLDER": "C:\\Users",
         "PROGRAMFILES": "C:\\Program Files",
-        "PROGRAMFILES(x86)": "C:\\Program Files (x86)",
+        "PROGRAMFILES(X86)": "C:\\Program Files (x86)",
         "SYSTEM": "C:\\Windows\\System32",
         "SYSTEM16": "C:\\Windows\\System16",
         "SYSTEM32": "C:\\Windows\\System32",
@@ -782,16 +786,18 @@ def test_version_runs_build_command_windows(
         "TMP": "C:\\Users\\Username\\AppData\\Local\\Temp",
         "USERPROFILE": "C:\\Users\\Username",
         "USERSID": "S-1-5-21-1234567890-123456789-123456789-1234",
+        "USERNAME": "Username",  # must include for python getpass.getuser() on windows
         "WINDIR": "C:\\Windows",
     }
 
     # Mock out subprocess.run
     with mock.patch(
-        "subprocess.run", return_value=CompletedProcess(args=(), returncode=0)
+        get_func_qual_name(subprocess.run),
+        return_value=CompletedProcess(args=(), returncode=0),
     ) as patched_subprocess_run, mock.patch(
         "shellingham.detect_shell", return_value=(exe, shell)
     ), mock.patch("sys.platform", "win32"), mock.patch.dict(
-        "os.environ", patched_os_environment, clear=True
+        os.environ, patched_os_environment, clear=True
     ):
         cli_cmd = [MAIN_PROG_NAME, VERSION_SUBCMD, "--patch", "--no-push"]
 
@@ -821,15 +827,15 @@ def test_version_runs_build_command_windows(
                 "ALLUSERSPROFILE": patched_os_environment["ALLUSERSPROFILE"],
                 "APPDATA": patched_os_environment["APPDATA"],
                 "COMMONPROGRAMFILES": patched_os_environment["COMMONPROGRAMFILES"],
-                "COMMONPROGRAMFILES(x86)": patched_os_environment[
-                    "COMMONPROGRAMFILES(x86)"
+                "COMMONPROGRAMFILES(X86)": patched_os_environment[
+                    "COMMONPROGRAMFILES(X86)"
                 ],
                 "DEFAULTUSERPROFILE": patched_os_environment["DEFAULTUSERPROFILE"],
                 "HOMEPATH": patched_os_environment["HOMEPATH"],
                 "PATHEXT": patched_os_environment["PATHEXT"],
                 "PROFILESFOLDER": patched_os_environment["PROFILESFOLDER"],
                 "PROGRAMFILES": patched_os_environment["PROGRAMFILES"],
-                "PROGRAMFILES(x86)": patched_os_environment["PROGRAMFILES(x86)"],
+                "PROGRAMFILES(X86)": patched_os_environment["PROGRAMFILES(X86)"],
                 "SYSTEM": patched_os_environment["SYSTEM"],
                 "SYSTEM16": patched_os_environment["SYSTEM16"],
                 "SYSTEM32": patched_os_environment["SYSTEM32"],
@@ -852,9 +858,11 @@ def test_version_runs_build_command_w_user_env(
     # Setup
     patched_os_environment = {
         "CI": "true",
-        "PATH": os.getenv("PATH"),
-        "HOME": os.getenv("HOME"),
-        "VIRTUAL_ENV": os.getenv("VIRTUAL_ENV", "./.venv"),
+        "PATH": os.getenv("PATH", ""),
+        "HOME": "/home/username",
+        "VIRTUAL_ENV": "./.venv",
+        # Windows
+        "USERNAME": "Username",  # must include for python getpass.getuser() on windows
         # Simulate that all CI's are set
         "GITHUB_ACTIONS": "true",
         "GITLAB_CI": "true",
@@ -884,10 +892,11 @@ def test_version_runs_build_command_w_user_env(
 
     # Mock out subprocess.run
     with mock.patch(
-        "subprocess.run", return_value=CompletedProcess(args=(), returncode=0)
+        get_func_qual_name(subprocess.run),
+        return_value=CompletedProcess(args=(), returncode=0),
     ) as patched_subprocess_run, mock.patch(
         "shellingham.detect_shell", return_value=("bash", "/usr/bin/bash")
-    ), mock.patch.dict("os.environ", patched_os_environment, clear=True):
+    ), mock.patch.dict(os.environ, patched_os_environment, clear=True):
         cli_cmd = [
             MAIN_PROG_NAME,
             VERSION_SUBCMD,
@@ -938,7 +947,8 @@ def test_version_skips_build_command_with_skip_build(
     cli_cmd = [MAIN_PROG_NAME, VERSION_SUBCMD, "--patch", "--no-push", "--skip-build"]
 
     with mock.patch(
-        "subprocess.run", return_value=CompletedProcess(args=(), returncode=0)
+        get_func_qual_name(subprocess.run),
+        return_value=CompletedProcess(args=(), returncode=0),
     ) as patched_subprocess_run:
         # Act: force a new version
         result = cli_runner.invoke(main, cli_cmd[1:])
@@ -1159,7 +1169,7 @@ def test_version_only_update_files_no_git_actions(
         [
             "CHANGELOG.md",
             "pyproject.toml",
-            f"src/{EXAMPLE_PROJECT_NAME}/_version.py",
+            str(Path(f"src/{EXAMPLE_PROJECT_NAME}/_version.py")),
         ]
     )
     assert expected_changed_files == differing_files
